@@ -1,0 +1,5 @@
+selenium
+selenium-stealth
+python-dotenv
+fuzzywuzzy
+python-Levenshtein
