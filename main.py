@@ -73,24 +73,30 @@ if __name__ == "__main__":
         fix_hairline=True,
         )
 
-    driver.get("https://my.wealthsimple.com/app/activity")
+    driver.get("https://my.wealthsimple.com")
     email = os.getenv("WS_EMAIL")
     password = os.getenv("WS_PASSWORD")
-    if (email and password): # If not defined, you can login manually
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div > div > div > input")))
+    if (email): # If not defined, you can login manually
+        WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div > div > div > input")))
         fields = driver.find_elements(By.CSS_SELECTOR, "div > div > div > input")
         fields[0].send_keys(email)
+        fields[1].click()
+    if (password): # If not defined, you can login manually
+        WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div > div > div > input")))
+        fields = driver.find_elements(By.CSS_SELECTOR, "div > div > div > input")
         fields[1].send_keys(password)
+        fields[0].click()
+    if (email and password): # If not defined, you can login manually
         driver.find_elements(By.CSS_SELECTOR, "div > div > div > button").pop().click()
     WebDriverWait(driver, 3600).until(EC.url_changes(driver.current_url)) # Long timeout needed for manual login or 2FA
     driver.get("https://my.wealthsimple.com/app/activity")
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button/div/div/div[2]/p[1]")))
-    time.sleep(2)
+    time.sleep(2) # If you need to scroll down to 'Load More', increase this timeout to have enough time to scroll manually (scrolling is not automated)
     tickers = driver.find_elements(By.XPATH, "//button/div/div/div[2]/p[1]")
     transactions = []
     for x in range(len(tickers)):
         ticker = driver.find_elements(By.XPATH, "//button/div/div/div[2]/p[1]")[x]
-        transactionType = ticker.find_element(By.XPATH, "../p[2]")
+        transactionType = ticker.find_element(By.XPATH, "../div/p[1]")
         try:
             amount = ticker.find_element(By.XPATH, "../../../div[2]/p[1]")
         except:
@@ -106,7 +112,10 @@ if __name__ == "__main__":
                 try:
                     date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div/div[4]/div/div/p").text).isoformat()
                 except:
-                    date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div[4]/div/div/p").text).isoformat()
+                    try:
+                        date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div[4]/div/div/p").text).isoformat()
+                    except:
+                        date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div/div[5]/div/div/p").text).isoformat()
 
         if after_str is not None:
             after_date = datetime.strptime(after_str, '%Y-%m-%d %H:%M')
