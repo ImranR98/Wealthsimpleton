@@ -103,19 +103,11 @@ if __name__ == "__main__":
             continue
         amount.click()
         time.sleep(1)
+        details_div = amount.find_element(By.XPATH, "../../../../../div[2]")
         try:
-            date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div/div[3]/div/div/p").text).isoformat()
+            date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Date']/../div/div/p").text).isoformat()
         except:
-            try:
-                date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div[3]/div/div/p").text).isoformat()
-            except:
-                try:
-                    date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div/div[4]/div/div/p").text).isoformat()
-                except:
-                    try:
-                        date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div[4]/div/div/p").text).isoformat()
-                    except:
-                        date = convert_datetime(amount.find_element(By.XPATH, "../../../../../div[2]/div/div/div[5]/div/div/p").text).isoformat()
+            date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Filled']/../div/div/p").text).isoformat()
 
         if after_str is not None:
             after_date = datetime.strptime(after_str, '%Y-%m-%d %H:%M')
