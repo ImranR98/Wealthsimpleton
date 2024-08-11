@@ -4,7 +4,7 @@ const transactions = JSON.parse(fs.readFileSync(process.argv[2]).toString())
 
 const desiredTransactionDataByType = {
     'dividend reinvested': { finalType: 'Investment Buy' },
-    'dividend': {},
+    'dividend': { finalType: 'Dividend' },
     'recurring buy': { finalType: 'Investment Buy' },
     'fractional buy': { finalType: 'Investment Buy' },
     'market sell': { finalType: 'Investment Sell' },
