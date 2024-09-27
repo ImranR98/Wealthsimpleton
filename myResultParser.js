@@ -21,11 +21,19 @@ const positiveFinalTypes = ['Investment Sell', 'Dividend']
 
 const filteredParsedTransactions = []
 
+const additionalIgnoreFilters = {
+    'Investment Buy': new Set(['CASH']),
+    'Investment Sell': new Set(['CASH'])
+}
+
 for (let i = 0; i < transactions.length; i++) {
     const desiredTypeData = desiredTransactionDataByType[transactions[i].type.toLowerCase()] || desiredTransactionDataByDescription[transactions[i].description.toLowerCase()]
     const swapDescriptionAndType = !!desiredTransactionDataByDescription[transactions[i].description.toLowerCase()]
     if (desiredTypeData) {
         if (desiredTypeData.alsoMatchDescription && desiredTypeData.alsoMatchDescription != transactions[i].description) {
+            continue
+        }
+        if (!!additionalIgnoreFilters[desiredTypeData.finalType] && additionalIgnoreFilters[desiredTypeData.finalType].has(transactions[i].description)) {
             continue
         }
         filteredParsedTransactions.push({
