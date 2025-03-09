@@ -15,7 +15,8 @@ const desiredTransactionDataByType = {
 }
 const desiredTransactionDataByDescription = {
     'earnings': { finalType: 'Other Money In' },
-    'interest': { finalType: 'Interest' }
+    'interest': { finalType: 'Interest' },
+    'cashback': { finalType: 'Interest' }
 }
 const positiveFinalTypes = ['Investment Sell', 'Dividend']
 
