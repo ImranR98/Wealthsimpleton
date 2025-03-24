@@ -107,7 +107,10 @@ if __name__ == "__main__":
         try:
             date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Date']/../div/div/p").text).isoformat()
         except:
-            date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Filled']/../div/div/p").text).isoformat()
+            try:
+                date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Filled']/../div/div/p").text).isoformat()
+            except:
+                date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Submitted']/../div/div/p").text).isoformat()
 
         if after_str is not None:
             after_date = datetime.strptime(after_str, '%Y-%m-%d %H:%M')
