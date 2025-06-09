@@ -41,7 +41,7 @@ for (let i = 0; i < transactions.length; i++) {
             date: transactions[i].date.slice(0,10),
             description: !swapDescriptionAndType ? `${transactions[i].description} ${transactions[i].type}` : transactions[i].type,
             amount: parseFloat(transactions[i].amount.replace('$', '').split(',').join('')) * (positiveFinalTypes.indexOf(desiredTypeData.finalType) >= 0 ? 1 : -1),
-            currency: RegExp(' [A-Z]+$').exec(transactions[i].amount)[0].trim(),
+            currency: (RegExp(' [A-Z]+$').exec(transactions[i].amount) || ['CAD'])[0].trim(),
             type: desiredTypeData.finalType || (!swapDescriptionAndType ? transactions[i].type : transactions[i].description)
         })
     }
