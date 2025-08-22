@@ -1,3 +1,7 @@
+// Custom script to further process the output of main.py according to the author's specific needs
+// Basically filter some things out, categorize the rest, and print the results for copy-pasting into a spreadsheet
+// If you're reading this and you are not the author, you can ignore this file
+
 const fs = require('fs')
 
 const transactions = JSON.parse(fs.readFileSync(process.argv[2]).toString())
