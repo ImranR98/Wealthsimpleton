@@ -74,20 +74,6 @@ if __name__ == "__main__":
         )
 
     driver.get("https://my.wealthsimple.com")
-    email = os.getenv("WS_EMAIL")
-    password = os.getenv("WS_PASSWORD")
-    if (email): # If not defined, you can login manually
-        WebDriverWait(driver, 3600).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div > div > div > input")))
-        fields = driver.find_elements(By.CSS_SELECTOR, "div > div > div > input")
-        fields[0].send_keys(email)
-        fields[1].click()
-    if (password): # If not defined, you can login manually
-        WebDriverWait(driver, 3600).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div > div > div > input")))
-        fields = driver.find_elements(By.CSS_SELECTOR, "div > div > div > input")
-        fields[1].send_keys(password)
-        fields[0].click()
-    if (email and password): # If not defined, you can login manually
-        driver.find_elements(By.CSS_SELECTOR, "div > div > div > button").pop().click()
     WebDriverWait(driver, 3600).until(EC.url_changes(driver.current_url)) # Long timeout needed for manual login or 2FA
     driver.get("https://my.wealthsimple.com/app/activity")
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button/div/div/div[2]/p[1]")))
