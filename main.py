@@ -73,7 +73,7 @@ if __name__ == "__main__":
         fix_hairline=True,
         )
 
-    driver.get("https://my.wealthsimple.com")
+    driver.get("https://my.wealthsimple.com/login")
     WebDriverWait(driver, 3600).until(EC.url_changes(driver.current_url)) # Long timeout needed for manual login or 2FA
     driver.get("https://my.wealthsimple.com/app/activity")
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//button/div/div/div[2]/p[1]")))
