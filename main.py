@@ -89,7 +89,7 @@ if __name__ == "__main__":
             continue
         amount.click()
         time.sleep(1)
-        details_div = amount.find_element(By.XPATH, "../../../../../div[2]")
+        details_div = amount.find_element(By.XPATH, "../../../../../div")
         try:
             date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Date']/../div/div/p").text).isoformat()
         except:
