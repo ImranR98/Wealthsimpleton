@@ -91,7 +91,7 @@ if __name__ == "__main__":
         time.sleep(1)
         details_div = amount.find_element(By.XPATH, "../../../../../div")
         try:
-            date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Date']/../div/div/p").text).isoformat()
+            date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Date']/../../div[2]/div/p").text).isoformat()
         except:
             try:
                 date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Filled']/../div/div/p").text).isoformat()
