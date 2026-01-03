@@ -22,7 +22,7 @@ const desiredTransactionDataByDescription = {
     'interest': { finalType: 'Interest' },
     'cashback': { finalType: 'Interest' }
 }
-const positiveFinalTypes = ['Investment Sell', 'Dividend']
+const positiveFinalTypes = ['Investment Sell', 'Dividend', 'Interest']
 
 const filteredParsedTransactions = []
 
