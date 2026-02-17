@@ -89,14 +89,17 @@ if __name__ == "__main__":
             continue
         amount.click()
         time.sleep(1)
-        details_div = amount.find_element(By.XPATH, "../../../../../div")
+        details_div = amount.find_element(By.XPATH, "../../../../../div[2]")
         try:
             date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Date']/../../div[2]/div/p").text).isoformat()
         except:
             try:
                 date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Filled']/../../div[2]/div/p").text).isoformat()
             except:
-                date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Submitted']/../../div[2]/div/p").text).isoformat()
+                try:
+                    date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Submitted']/../../div[2]/div/p").text).isoformat()
+                except:
+                    date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Paid']/../../p").text).isoformat()
 
         if after_str is not None:
             after_date = datetime.strptime(after_str, '%Y-%m-%d %H:%M')
