@@ -11,6 +11,7 @@ const desiredTransactionDataByType = {
     'dividend': { finalType: 'Dividend' },
     'recurring buy': { finalType: 'Investment Buy' },
     'fractional buy': { finalType: 'Investment Buy' },
+    'fractional sell': { finalType: 'Investment Sell' },
     'market sell': { finalType: 'Investment Sell' },
     'limit buy': { finalType: 'Investment Buy' },
     'limit sell': { finalType: 'Investment Sell' },
@@ -27,8 +28,8 @@ const positiveFinalTypes = ['Investment Sell', 'Dividend', 'Interest']
 const filteredParsedTransactions = []
 
 const additionalIgnoreFilters = {
-    'Investment Buy': new Set(['CASH']),
-    'Investment Sell': new Set(['CASH'])
+    'Investment Buy': new Set(['CASH', 'MNY']),
+    'Investment Sell': new Set(['CASH', 'MNY'])
 }
 
 for (let i = 0; i < transactions.length; i++) {
