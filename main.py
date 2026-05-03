@@ -15,14 +15,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC\
 
-# Function to get the screen width and height
-def get_screen_dimensions():
-    root = tk.Tk()
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    root.destroy()
-    return screen_width, screen_height
-
 # Convert a date/time string from 'January 30' or 'January 30, 2024' format to a date
 def convert_datetime(input_string):
     current_year = datetime.now().year
@@ -49,12 +41,7 @@ if __name__ == "__main__":
 
     # Setup Webdriver and load env. vars.
     load_dotenv()
-    screen_width, screen_height = get_screen_dimensions()
-    window_width = screen_width // 2
-    window_height = screen_height
     options = webdriver.ChromeOptions()
-    options.add_argument(f"window-size={window_width},{window_height}")
-    options.add_argument(f"window-position={screen_width},0")
     dataDir = f"/home/{getpass.getuser()}/.config/chromium"
     if not os.path.isdir(dataDir):
         dataDir = f"/home/{getpass.getuser()}/.config/google-chrome"
