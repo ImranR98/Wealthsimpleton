@@ -13,7 +13,8 @@ from selenium_stealth import stealth
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC\
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 
 # Convert a date/time string from 'January 30' or 'January 30, 2024' format to a date
 def convert_datetime(input_string):
@@ -87,9 +88,12 @@ if __name__ == "__main__":
                     date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Submitted']/../../div[2]/div/p").text).isoformat()
                 except:
                     try:
-                        date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Paid']/../../div[2]/div/p").text).isoformat()
-                    except:
-                        date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Next order date']/../../div[2]/div/p").text).isoformat()
+                        date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Paid']/../../p").text).isoformat()
+                    except:                        
+                        try:
+                            date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Next order date']/../../div[2]/div/p").text).isoformat()
+                        except:
+                            date = convert_datetime(details_div.find_element(By.XPATH, "//p[text() = 'Holdings on record date']/../../div[2]/div/p").text).isoformat()
                         
 
         if after_str is not None:
