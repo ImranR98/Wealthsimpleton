@@ -3,7 +3,6 @@ import json
 import logging
 import sys
 from dotenv import load_dotenv
-import tkinter as tk
 from datetime import datetime
 import argparse
 import random
