@@ -58,9 +58,13 @@ if __name__ == "__main__":
     options.add_argument("--profile-directory=Default")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
+    os.environ["TMPDIR"] = "/tmp"
     driver = None
     for attempt in range(3):
         try:
+            import glob
+            for f in glob.glob(os.path.join(dataDir, "Singleton*")):
+                os.remove(f)
             driver = webdriver.Chrome(options=options)
             break
         except Exception as e:
