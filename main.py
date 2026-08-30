@@ -33,6 +33,11 @@ def convert_datetime(input_string):
             continue
     raise ValueError(f"unparseable date: {input_string!r}")
 
+# Click an element after centering it in the viewport: the activity page has a
+# sticky header that would otherwise intercept clicks on rows scrolled to the top.
+def click_visible(driver, element):
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();", element)
+
 # Main function
 if __name__ == "__main__":
     # Validate arguments
@@ -110,7 +115,7 @@ if __name__ == "__main__":
             if oldest < cutoff.replace(hour=0, minute=0, second=0, microsecond=0):
                 log.info("Reached cutoff %s, stopping 'Load more'", cutoff.date().isoformat())
                 break
-        load_more.click()
+        click_visible(driver, load_more)
         time.sleep(2)
     tickers = driver.find_elements(By.XPATH, "//main//button[span[1]/span[3]]")
     log.info("Found %d transactions, scraping...", len(tickers))
@@ -120,21 +125,21 @@ if __name__ == "__main__":
         try:
             description = ticker.find_element(By.XPATH, "./span[1]/span[2]/span[1]").text
             transactionType = ticker.find_element(By.XPATH, "./span[1]/span[2]/span[2]/span[1]/span[1]/span[1]").text
-            ticker.click()
+            click_visible(driver, ticker)
             panel = WebDriverWait(driver, 10).until(EC.presence_of_element_located((
                 By.XPATH, f"(//main//button[span[1]/span[3]])[{x + 1}]/following-sibling::div[1]")))
             details = {}
             for dt, dd in zip(panel.find_elements(By.TAG_NAME, 'dt'), panel.find_elements(By.TAG_NAME, 'dd')):
                 details[dt.text] = dd.text
-            ticker.click()  # collapse
+            click_visible(driver, ticker)  # collapse
             amount = (details.get('Total') or details.get('Amount') or details.get('Total cost')
                       or ticker.find_element(By.XPATH, "./span[1]/span[3]/span[last()]/span[1]/span[1]").text)
             date_str = details.get('Date')
             if not date_str:
                 date_str = ticker.find_element(By.XPATH, "ancestor::div[.//h3][1]//h3").text
             date = convert_datetime(date_str).isoformat()
-        except (NoSuchElementException, ValueError) as e:
-            log.debug("  skip %d: %s (%s)", x, ticker.text, e)
+        except Exception as e:
+            log.warning("  skip %d: %s (%s: %s)", x, ticker.text, type(e).__name__, e)
             continue
         log.debug("  %d/%d: %s | %s | %s | %s", x + 1, len(tickers), description, transactionType, amount, date)
 
