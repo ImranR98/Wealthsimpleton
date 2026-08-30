@@ -2,8 +2,9 @@ import os
 import json
 import logging
 import sys
+import re
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import random
 import time
@@ -16,15 +17,21 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
-# Convert a date/time string from 'January 30' or 'January 30, 2024' format to a date
+# Convert a date string from the activity page ('Today', 'Yesterday',
+# 'January 30, 2024', or 'August 30, 2026 4:00 pm') to a datetime.
 def convert_datetime(input_string):
-    current_year = datetime.now().year
-    if ',' in input_string:
-        date_format = '%B %d, %Y'
-    else:
-        date_format = '%B %d'
-        input_string += f", {current_year}"  # Add the current year
-    return datetime.strptime(input_string, date_format)
+    text = re.sub(r'\s+', ' ', input_string).strip()
+    today = datetime.now()
+    if text.lower() == 'today':
+        return today.replace(hour=0, minute=0, second=0, microsecond=0)
+    if text.lower() == 'yesterday':
+        return (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    for fmt in ('%B %d, %Y %I:%M %p', '%B %d, %Y'):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"unparseable date: {input_string!r}")
 
 # Main function
 if __name__ == "__main__":
@@ -86,46 +93,62 @@ if __name__ == "__main__":
     WebDriverWait(driver, 3600).until(EC.url_changes(driver.current_url)) # Long timeout needed for manual login or 2FA
     log.info("Logged in, loading activity page")
     driver.get("https://my.wealthsimple.com/app/activity")
-    WebDriverWait(driver, 300).until(EC.presence_of_element_located((By.XPATH, "//button/div/div/div[2]/p[1]")))
-    time.sleep(2) # If you need to scroll down to 'Load More', increase this timeout to have enough time to scroll manually (scrolling is not automated)
-    tickers = driver.find_elements(By.XPATH, "//button/div/div/div[2]/p[1]")
+    WebDriverWait(driver, 300).until(EC.presence_of_element_located((By.XPATH, "//main//button[span[1]/span[3]]")))
+    time.sleep(2)
+    if after_str is not None:
+        cutoff = datetime.strptime(after_str, '%Y-%m-%d %H:%M')
+    else:
+        cutoff = datetime.now() - timedelta(days=45)  # ~1.5 months
+    for _ in range(60):
+        try:
+            load_more = driver.find_element(By.XPATH, "//button[.//span[text()='Load more']]")
+        except NoSuchElementException:
+            break
+        headers = driver.find_elements(By.XPATH, "//main//h3")
+        if headers:
+            oldest = convert_datetime(headers[-1].text)
+            if oldest < cutoff.replace(hour=0, minute=0, second=0, microsecond=0):
+                log.info("Reached cutoff %s, stopping 'Load more'", cutoff.date().isoformat())
+                break
+        load_more.click()
+        time.sleep(2)
+    tickers = driver.find_elements(By.XPATH, "//main//button[span[1]/span[3]]")
     log.info("Found %d transactions, scraping...", len(tickers))
     transactions = []
     for x in range(len(tickers)):
-        ticker = driver.find_elements(By.XPATH, "//button/div/div/div[2]/p[1]")[x]
-        transactionType = ticker.find_element(By.XPATH, "../div/p[1]")
+        ticker = driver.find_elements(By.XPATH, "//main//button[span[1]/span[3]]")[x]
         try:
-            amount = ticker.find_element(By.XPATH, "../../../div[2]/div[1]/p[1]")
-        except:
-            log.debug("  skip %d: %s (no amount)", x, ticker.text)
+            description = ticker.find_element(By.XPATH, "./span[1]/span[2]/span[1]").text
+            transactionType = ticker.find_element(By.XPATH, "./span[1]/span[2]/span[2]/span[1]/span[1]/span[1]").text
+            ticker.click()
+            panel = WebDriverWait(driver, 10).until(EC.presence_of_element_located((
+                By.XPATH, f"(//main//button[span[1]/span[3]])[{x + 1}]/following-sibling::div[1]")))
+            details = {}
+            for dt, dd in zip(panel.find_elements(By.TAG_NAME, 'dt'), panel.find_elements(By.TAG_NAME, 'dd')):
+                details[dt.text] = dd.text
+            ticker.click()  # collapse
+            amount = (details.get('Total') or details.get('Amount') or details.get('Total cost')
+                      or ticker.find_element(By.XPATH, "./span[1]/span[3]/span[last()]/span[1]/span[1]").text)
+            date_str = details.get('Date')
+            if not date_str:
+                date_str = ticker.find_element(By.XPATH, "ancestor::div[.//h3][1]//h3").text
+            date = convert_datetime(date_str).isoformat()
+        except (NoSuchElementException, ValueError) as e:
+            log.debug("  skip %d: %s (%s)", x, ticker.text, e)
             continue
-        amount.click()
-        time.sleep(1)
-        details_div = amount.find_element(By.XPATH, "../../../../../../div[2]")
-        date_field = None
-        for field in ['Date', 'Filled', 'Submitted', 'Paid', 'Next order date', 'Holdings on record date']:
-            try:
-                date = convert_datetime(details_div.find_element(By.XPATH, f"//p[text() = '{field}']/../../div[2]/div/p").text).isoformat()
-                date_field = field
-                break
-            except:
-                continue
-        log.debug("  %d/%d: %s | %s | %s | %s (%s)", x + 1, len(tickers), ticker.text, transactionType.text, amount.text, date, date_field)
+        log.debug("  %d/%d: %s | %s | %s | %s", x + 1, len(tickers), description, transactionType, amount, date)
 
-        if after_str is not None:
-            after_date = datetime.strptime(after_str, '%Y-%m-%d %H:%M')
-            curr_date = datetime.fromisoformat(date)
-            if after_date > curr_date:
-                log.info("Cutoff date %s reached, stopping", after_str)
-                break
+        if datetime.fromisoformat(date) < cutoff:
+            log.info("Cutoff %s reached, stopping", cutoff.date().isoformat())
+            break
 
         transactions.append({
-            "description": ticker.text,
-            "type": transactionType.text,
-            "amount": amount.text,
-            "date": date
+            "description": description,
+            "type": transactionType,
+            "amount": amount,
+            "date": date,
+            "details": details,
         })
-        amount.click()
 
     log.info("Scraped %d transactions", len(transactions))
     report = json.dumps(transactions, indent=4)
