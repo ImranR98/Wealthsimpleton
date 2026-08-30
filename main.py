@@ -7,7 +7,6 @@ from datetime import datetime
 import argparse
 import random
 import time
-import getpass
 
 from selenium import webdriver
 from selenium_stealth import stealth
@@ -53,17 +52,22 @@ if __name__ == "__main__":
     log.info("Wealthsimpleton starting")
     load_dotenv()
     options = webdriver.ChromeOptions()
-    dataDir = f"/home/{getpass.getuser()}/.config/chromium"
-    if not os.path.isdir(dataDir):
-        dataDir = f"/home/{getpass.getuser()}/.config/google-chrome"
-    if os.path.isdir(dataDir):
-        options.add_argument(f"--user-data-dir={dataDir}")
-        options.add_argument(f"--profile-directory=Default")
-    else:
-        log.warning("No Chrome user data dir found, starting with fresh profile")
+    dataDir = os.path.expanduser("~/.config/wealthsimpleton-selenium")
+    os.makedirs(dataDir, exist_ok=True)
+    options.add_argument(f"--user-data-dir={dataDir}")
+    options.add_argument("--profile-directory=Default")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
-    driver = webdriver.Chrome(options=options)
+    driver = None
+    for attempt in range(3):
+        try:
+            driver = webdriver.Chrome(options=options)
+            break
+        except Exception as e:
+            log.warning("Chrome launch failed (attempt %d/3): %s", attempt + 1, e)
+            time.sleep(5)
+    if driver is None:
+        raise RuntimeError("Chrome failed to launch after 3 attempts")
     stealth(driver,
         languages=["en-US", "en"],
         vendor="Google Inc.",
