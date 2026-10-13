@@ -1,0 +1,8 @@
+# Direct dependencies only; the hashed requirements.txt is generated with
+# `scripts/lock-python-deps.sh` (pip-compile --generate-hashes). Renovate
+# bumps these pins; re-run the lock script after merging an update PR.
+selenium==4.51.0
+selenium-stealth==1.0.6
+python-dotenv==1.2.4
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.27.5
