@@ -65,7 +65,12 @@ if __name__ == "__main__":
     load_dotenv()
     options = webdriver.ChromeOptions()
     dataDir = os.path.expanduser("~/.config/wealthsimpleton-selenium")
-    os.makedirs(dataDir, exist_ok=True)
+    remote = os.environ.get("SELENIUM_REMOTE_URL")
+    if remote and not os.environ.get("SELENIUM_PROFILE_DIR"):
+        # The profile lives on the Selenium sidecar (it runs Chrome as
+        # `seluser`); the path is resolved there, so never touch it locally.
+        dataDir = "/home/seluser/.config/" + os.path.basename(dataDir)
+    dataDir = os.environ.get("SELENIUM_PROFILE_DIR", dataDir)
     options.add_argument(f"--user-data-dir={dataDir}")
     options.add_argument("--profile-directory=Default")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -74,16 +79,25 @@ if __name__ == "__main__":
     driver = None
     for attempt in range(3):
         try:
-            import glob
-            for f in glob.glob(os.path.join(dataDir, "Singleton*")):
-                os.remove(f)
-            driver = webdriver.Chrome(options=options)
+            if remote:
+                options.add_argument("--no-sandbox")
+                driver = webdriver.Remote(command_executor=remote, options=options)
+            else:
+                import glob
+                os.makedirs(dataDir, exist_ok=True)
+                for f in glob.glob(os.path.join(dataDir, "Singleton*")):
+                    os.remove(f)
+                driver = webdriver.Chrome(options=options)
             break
         except Exception as e:
             log.warning("Chrome launch failed (attempt %d/3): %s", attempt + 1, e)
             time.sleep(5)
     if driver is None:
         raise RuntimeError("Chrome failed to launch after 3 attempts")
+    if remote:
+        # selenium-stealth only accepts a local Chrome instance; the remote
+        # driver speaks the same CDP, so present it as Chrome for that check.
+        driver.__class__ = webdriver.Chrome
     stealth(driver,
         languages=["en-US", "en"],
         vendor="Google Inc.",
