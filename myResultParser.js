@@ -25,6 +25,14 @@ const desiredTransactionDataByDescription = {
 }
 const positiveFinalTypes = ['Investment Sell', 'Dividend', 'Interest']
 
+// Amounts arrive as pure currency values ("$54.50 CAD", "US$1,234.56").
+// Strip the currency decorations, and mark an unlabelled US$ amount as USD.
+const parseAmount = (value) => parseFloat(String(value).replace(/[^0-9.-]/g, ''))
+const currencyOf = (value) => {
+    const code = /([A-Z]{3})\s*$/.exec(String(value))
+    return code ? code[1] : (/US\$/.test(String(value)) ? 'USD' : 'CAD')
+}
+
 const filteredParsedTransactions = []
 
 const additionalIgnoreFilters = {
@@ -42,11 +50,16 @@ for (let i = 0; i < transactions.length; i++) {
         if (!!additionalIgnoreFilters[desiredTypeData.finalType] && additionalIgnoreFilters[desiredTypeData.finalType].has(transactions[i].description)) {
             continue
         }
+        const amount = parseAmount(transactions[i].amount)
+        if (!Number.isFinite(amount)) {
+            console.error(`Skipping ${transactions[i].description} ${transactions[i].type}: unparseable amount ${JSON.stringify(transactions[i].amount)}`)
+            continue
+        }
         filteredParsedTransactions.push({
             date: transactions[i].date.slice(0,10),
             description: !swapDescriptionAndType ? `${transactions[i].description} ${transactions[i].type}` : transactions[i].type,
-            amount: parseFloat(transactions[i].amount.replace('$', '').split(',').join('')) * (positiveFinalTypes.indexOf(desiredTypeData.finalType) >= 0 ? 1 : -1),
-            currency: (RegExp(' [A-Z]+$').exec(transactions[i].amount) || ['CAD'])[0].trim(),
+            amount: amount * (positiveFinalTypes.indexOf(desiredTypeData.finalType) >= 0 ? 1 : -1),
+            currency: currencyOf(transactions[i].amount),
             type: desiredTypeData.finalType || (!swapDescriptionAndType ? transactions[i].type : transactions[i].description)
         })
     }

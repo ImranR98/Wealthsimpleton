@@ -15,7 +15,32 @@ from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+
+# A transaction amount is a standalone currency value ("$54.50 CAD",
+# "US$1,234.56", "54.50 CAD"). Composite strings like the DRIP panel's
+# "1.1444 shares x $47.62 CAD" (Filled quantity) must not match.
+MONEY_RE = re.compile(r'^[+-]?(?:(?:US|C)?\$[\d,]+(?:\.\d+)?(?:\s+[A-Z]{3})?|[\d,]+(?:\.\d+)?\s+[A-Z]{3})$')
+
+# Panel details that hold the transaction total, most specific first.
+AMOUNT_LABELS = ('Total cost', 'Total', 'Amount', 'Amount invested', 'Total value', 'Value', 'Dividend')
+NON_AMOUNT_LABEL_RE = re.compile(r'price|share|rate|quantity|fx', re.IGNORECASE)
+
+# Pick the pure money value out of an expanded activity panel. Labels alone
+# are not trusted: Wealthsimple sometimes labels the share quantity "Total",
+# so only currency-shaped values are accepted, and price/share rows skipped.
+def pick_amount(details):
+    for label in AMOUNT_LABELS:
+        value = (details.get(label) or '').strip()
+        if MONEY_RE.match(value):
+            return value
+    for label, value in details.items():
+        if NON_AMOUNT_LABEL_RE.search(label):
+            continue
+        value = value.strip()
+        if MONEY_RE.match(value):
+            return value
+    return None
 
 # Convert a date string from the activity page ('Today', 'Yesterday',
 # 'January 30, 2024', or 'August 30, 2026 4:00 pm') to a datetime.
@@ -142,12 +167,26 @@ if __name__ == "__main__":
             click_visible(driver, ticker)
             panel = WebDriverWait(driver, 10).until(EC.presence_of_element_located((
                 By.XPATH, f"(//main//button[span[1]/span[3]])[{x + 1}]/following-sibling::div[1]")))
+            try:
+                WebDriverWait(driver, 5).until(lambda _: panel.find_elements(By.TAG_NAME, 'dt'))
+            except TimeoutException:
+                pass
+            # Pair each label with its own value; zipping the dt and dd lists
+            # globally mispairs every row after an unpaired dd.
             details = {}
-            for dt, dd in zip(panel.find_elements(By.TAG_NAME, 'dt'), panel.find_elements(By.TAG_NAME, 'dd')):
-                details[dt.text] = dd.text
+            for dt in panel.find_elements(By.TAG_NAME, 'dt'):
+                dd = dt.find_elements(By.XPATH, './following-sibling::dd[1]')
+                if dd:
+                    details[dt.text] = dd[0].text
             click_visible(driver, ticker)  # collapse
-            amount = (details.get('Total') or details.get('Amount') or details.get('Total cost')
-                      or ticker.find_element(By.XPATH, "./span[1]/span[3]/span[last()]/span[1]/span[1]").text)
+            row_amount = ticker.find_element(
+                By.XPATH, "./span[1]/span[3]/span[last()]/span[1]/span[1]").text.strip()
+            amount = pick_amount(details)
+            if amount is None:
+                amount = row_amount
+                if not MONEY_RE.match(row_amount):
+                    log.warning("  no money amount for %s | %s (detail labels: %s); using %r",
+                                description, transactionType, list(details), row_amount)
             date_str = details.get('Date')
             if not date_str:
                 date_str = ticker.find_element(By.XPATH, "ancestor::div[.//h3][1]//h3").text
