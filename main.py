@@ -25,6 +25,21 @@ MONEY_RE = re.compile(r'^[+-]?(?:(?:US|C)?\$[\d,]+(?:\.\d+)?(?:\s+[A-Z]{3})?|[\d
 # Panel details that hold the transaction total, most specific first.
 AMOUNT_LABELS = ('Total cost', 'Total', 'Amount', 'Amount invested', 'Total value', 'Value', 'Dividend')
 NON_AMOUNT_LABEL_RE = re.compile(r'price|share|rate|quantity|fx', re.IGNORECASE)
+INACTIVE_STATUSES = {'cancelled', 'canceled', 'rejected', 'expired', 'failed'}
+
+# Wealthsimple renders negatives with a Unicode minus ("\u2212 $47.23 CAD").
+# Normalize only for matching: the original string is kept in the output so
+# myResultParser.js keeps its existing type-based sign handling.
+def normalize_money(value):
+    text = str(value or '').replace('\u2212', '-').replace('\u2013', '-').replace('\u2014', '-').replace('\xa0', ' ')
+    text = re.sub(r'\s+', ' ', text).strip()
+    return re.sub(r'^([+-])\s+', r'\1', text)
+
+def is_money(value):
+    return bool(MONEY_RE.match(normalize_money(value)))
+
+def one_line(value):
+    return re.sub(r'\s+', ' ', str(value or '')).strip()
 
 # Pick the pure money value out of an expanded activity panel. Labels alone
 # are not trusted: Wealthsimple sometimes labels the share quantity "Total",
@@ -32,13 +47,13 @@ NON_AMOUNT_LABEL_RE = re.compile(r'price|share|rate|quantity|fx', re.IGNORECASE)
 def pick_amount(details):
     for label in AMOUNT_LABELS:
         value = (details.get(label) or '').strip()
-        if MONEY_RE.match(value):
+        if is_money(value):
             return value
     for label, value in details.items():
         if NON_AMOUNT_LABEL_RE.search(label):
             continue
-        value = value.strip()
-        if MONEY_RE.match(value):
+        value = (value or '').strip()
+        if is_money(value):
             return value
     return None
 
@@ -160,8 +175,9 @@ if __name__ == "__main__":
     log.info("Found %d transactions, scraping...", len(tickers))
     transactions = []
     for x in range(len(tickers)):
-        ticker = driver.find_elements(By.XPATH, "//main//button[span[1]/span[3]]")[x]
+        ticker = None
         try:
+            ticker = driver.find_elements(By.XPATH, "//main//button[span[1]/span[3]]")[x]
             description = ticker.find_element(By.XPATH, "./span[1]/span[2]/span[1]").text
             transactionType = ticker.find_element(By.XPATH, "./span[1]/span[2]/span[2]/span[1]/span[1]/span[1]").text
             click_visible(driver, ticker)
@@ -179,20 +195,33 @@ if __name__ == "__main__":
                 if dd:
                     details[dt.text] = dd[0].text
             click_visible(driver, ticker)  # collapse
-            row_amount = ticker.find_element(
-                By.XPATH, "./span[1]/span[3]/span[last()]/span[1]/span[1]").text.strip()
+            status = (details.get('Status') or '').strip()
+            if status.lower() in INACTIVE_STATUSES:
+                log.info("  Skipped %s transaction %d/%d: %s | %s",
+                         status, x + 1, len(tickers), description, transactionType)
+                continue
+            row_amount_matches = ticker.find_elements(
+                By.XPATH, "./span[1]/span[3]/span[last()]/span[1]/span[1]")
+            row_amount = row_amount_matches[0].text.strip() if row_amount_matches else ''
             amount = pick_amount(details)
             if amount is None:
-                amount = row_amount
-                if not MONEY_RE.match(row_amount):
-                    log.warning("  no money amount for %s | %s (detail labels: %s); using %r",
-                                description, transactionType, list(details), row_amount)
+                if row_amount and is_money(row_amount):
+                    amount = row_amount
+                    log.debug("  using row amount for %d/%d: %s | %s",
+                              x + 1, len(tickers), description, transactionType)
+                else:
+                    suffix = f" (status: {status})" if status else ""
+                    log.warning("  Skipped %d/%d: %s | %s%s: no amount",
+                                x + 1, len(tickers), description, transactionType, suffix)
+                    continue
             date_str = details.get('Date')
             if not date_str:
                 date_str = ticker.find_element(By.XPATH, "ancestor::div[.//h3][1]//h3").text
             date = convert_datetime(date_str).isoformat()
         except Exception as e:
-            log.warning("  skip %d: %s (%s: %s)", x, ticker.text, type(e).__name__, e)
+            label = one_line(ticker.text) if ticker is not None else f"index {x}"
+            log.warning("  Skipped %d/%d: %s (%s)", x + 1, len(tickers), label, type(e).__name__)
+            log.debug("  scrape error for %d/%d", x + 1, len(tickers), exc_info=True)
             continue
         log.debug("  %d/%d: %s | %s | %s | %s", x + 1, len(tickers), description, transactionType, amount, date)
 
